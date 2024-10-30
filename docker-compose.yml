@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+    todo:
+        build:
+            context: ./
+            dockerfile: DockerFile.multistage
+        deploy:
+            replicas: 4
+        ports:
+            - "8000-8003:8000"
+        networks:
+            - todo-networks
+    
+networks:
+    todo-networks:
+        external: true
