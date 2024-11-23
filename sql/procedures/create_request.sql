@@ -1,6 +1,6 @@
 CREATE OR REPLACE PROCEDURE create_request(
     IN email VARCHAR,
-    IN request_type VARCHAR,
+    IN request_type INTEGER,
     IN created_at DATE
 )
 LANGUAGE plpgsql

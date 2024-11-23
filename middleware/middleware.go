@@ -38,7 +38,6 @@ func Logger(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWri
 		timer := time.Now()
 		next(w, r)
 		log.Println(ColorMethod(r.Method), r.URL.Path, Yellow, time.Since(timer), Reset)
-
 	}
 }
 
@@ -47,11 +46,25 @@ func AuthRequired(next func(http.ResponseWriter, *http.Request, types.User)) fun
 		userData, userDataErr := common.GetUserDataFromToken(r)
 
 		if userDataErr != nil {
-			common.ErrorResponse(w, userDataErr.Error(), http.StatusUnauthorized)
+			common.ErrorResponse(w, userDataErr.Error(), http.StatusUnauthorized, "AuthRequired")
 			log.Println(Yellow+"UnAuthorized"+Reset, ColorMethod(r.Method), r.URL.Path)
 			return
 		}
 
 		next(w, r, userData)
+	}
+}
+
+func AuthRequiredReturnToken(next func(http.ResponseWriter, *http.Request, types.User, string)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userData, token, userDataErr := common.GetUserDataWithTokenFromToken(r)
+
+		if userDataErr != nil {
+			common.ErrorResponse(w, userDataErr.Error(), http.StatusUnauthorized, "AuthRequired")
+			log.Println(Yellow+"UnAuthorized"+Reset, ColorMethod(r.Method), r.URL.Path)
+			return
+		}
+
+		next(w, r, userData, token)
 	}
 }

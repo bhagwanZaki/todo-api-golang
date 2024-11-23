@@ -60,10 +60,22 @@ type OtpRequestSchema struct {
 type VerifyOtpSchema struct {
 	Email                  string `json:"email"`
 	Otp                    int    `json:"otp"`
-	IsForgetPasswordReqest bool   `json:"isForgetPassword"`
+	RequestType int   `json:"requestType"`
 }
 
+type DeleteAccountSchema struct {
+	Otp int `json:"otp"`
+}
 type PasswordChangeSchema struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+type ResetPasswordSchema struct {
+	Password string `json:"password"`
+}
+
+type ProfileSchema struct {
+	Username string `json:"username"`
+	Fullname string `json:"fullname"`
+	Email string `json:"email"`
 }

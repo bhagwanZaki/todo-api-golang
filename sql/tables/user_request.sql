@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.user_request
 (
     id integer NOT NULL DEFAULT nextval('user_request_id_seq'::regclass),
     email character varying COLLATE pg_catalog."default",
-    request_type character varying COLLATE pg_catalog."default",
+    request_type INTEGER,
     created_at DATE,
 
     CONSTRAINT user_request_pkey PRIMARY KEY (id)

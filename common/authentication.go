@@ -190,6 +190,32 @@ func GetUserDataFromToken(r *http.Request) (types.User, error) {
 	}
 
 	return userData, nil
+
+}
+func GetUserDataWithTokenFromToken(r *http.Request) (types.User, string, error) {
+	token, err := CheckTokenValidity(r)
+
+	if err != nil {
+		return types.User{}, "", err
+	}
+
+	if token == "" {
+		return types.User{}, "", errors.New("invalid token")
+	}
+
+	var userData types.User
+	dbErr := db.DB_CONN.QueryRow(context.Background(), "select * from get_user_data_from_token($1)", token).Scan(
+		&userData.Id,
+		&userData.Username,
+		&userData.Email,
+		&userData.Fullname,
+	)
+
+	if dbErr != nil {
+		return types.User{}, "", dbErr
+	}
+
+	return userData, token, nil
 }
 
 func HashPassword(password string) (string, error) {

@@ -33,11 +33,7 @@ func (h *TodoApi) GetTodos(w http.ResponseWriter, r *http.Request, userData type
 	todoList, err := service.GetTodoList(userData.Id)
 
 	if err != nil {
-		errResponse := types.ErrorResponse{
-			Message: err.Error(),
-			Code:    500,
-		}
-		json.NewEncoder(w).Encode(errResponse)
+		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "GetTodos")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -51,24 +47,24 @@ func (h *TodoApi) AddTodo(w http.ResponseWriter, r *http.Request, userData types
 	bodyErr := json.NewDecoder(r.Body).Decode(&data)
 
 	if r.Body == nil {
-		common.ErrorResponse(w, "Empty request body", http.StatusBadRequest)
+		common.ErrorResponse(w, "Empty request body", http.StatusBadRequest, "AddTodo")
 		return
 	}
 
 	if bodyErr != nil {
-		common.ErrorResponse(w, bodyErr.Error(), http.StatusInternalServerError)
+		common.ErrorResponse(w, bodyErr.Error(), http.StatusInternalServerError, "AddTodo")
 		return
 	}
 
 	if data.Name == "" {
-		common.ErrorResponse(w, "Name field can't be empty", http.StatusBadRequest)
+		common.ErrorResponse(w, "Name field can't be empty", http.StatusBadRequest, "AddTodo")
 		return
 	}
 
 	newTodo, err := service.AddTodo(data, userData.Id)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "AddTodo")
 		return
 	}
 
@@ -81,7 +77,7 @@ func (h *TodoApi) DeleteTodo(w http.ResponseWriter, r *http.Request, userData ty
 
 	id, parseErr := strconv.Atoi(r.PathValue("id"))
 	if parseErr != nil {
-		common.ErrorResponse(w, "Invalid id", http.StatusInternalServerError)
+		common.ErrorResponse(w, "Invalid id", http.StatusInternalServerError, "DeleteTodo")
 		return
 	}
 
@@ -89,10 +85,10 @@ func (h *TodoApi) DeleteTodo(w http.ResponseWriter, r *http.Request, userData ty
 
 	if err != nil {
 		if err.Error() == "Invalid id" {
-			common.ErrorResponse(w, "Id Not Found", http.StatusBadRequest)
+			common.ErrorResponse(w, "Id Not Found", http.StatusBadRequest, "DeleteTodo")
 			return
 		}
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest)
+		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "DeleteTodo")
 		return
 	}
 
@@ -104,7 +100,7 @@ func (h *TodoApi) UpdateTodo(w http.ResponseWriter, r *http.Request, userData ty
 
 	id, parseErr := strconv.Atoi(r.PathValue("id"))
 	if parseErr != nil {
-		common.ErrorResponse(w, "Invalid id", http.StatusInternalServerError)
+		common.ErrorResponse(w, "Invalid id", http.StatusInternalServerError, "UpdateTodo")
 		return
 	}
 
@@ -112,17 +108,17 @@ func (h *TodoApi) UpdateTodo(w http.ResponseWriter, r *http.Request, userData ty
 	bodyErr := json.NewDecoder(r.Body).Decode(&data)
 
 	if r.Body == nil {
-		common.ErrorResponse(w, "Empty request body", http.StatusBadRequest)
+		common.ErrorResponse(w, "Empty request body", http.StatusBadRequest, "UpdateTodo")
 		return
 	}
 
 	if bodyErr != nil {
-		common.ErrorResponse(w, bodyErr.Error(), http.StatusInternalServerError)
+		common.ErrorResponse(w, bodyErr.Error(), http.StatusInternalServerError, "UpdateTodo")
 		return
 	}
 
 	if data.Name == "" {
-		common.ErrorResponse(w, "Name field can't be empty", http.StatusBadRequest)
+		common.ErrorResponse(w, "Name field can't be empty", http.StatusBadRequest, "UpdateTodo")
 		return
 	}
 
@@ -130,11 +126,11 @@ func (h *TodoApi) UpdateTodo(w http.ResponseWriter, r *http.Request, userData ty
 
 	if err != nil {
 		if err.Error() == "invalid id" {
-			common.ErrorResponse(w, "Invalid Id", http.StatusBadRequest)
+			common.ErrorResponse(w, "Invalid Id", http.StatusBadRequest, "UpdateTodo")
 			return
 		}
 
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "UpdateTodo")
 		return
 	}
 
