@@ -2,7 +2,6 @@ package route
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"todoGoApi/common"
 	"todoGoApi/service"
@@ -16,10 +15,7 @@ func (h *AuthApi) CheckAuthentication(w http.ResponseWriter, r *http.Request) {
 	userData, err := common.GetUserDataFromToken(r)
 
 	if err != nil {
-		log.Println(err.Error())
-		log.Println(err.Error() == "no rows in result set")
 		if err.Error() == "no rows in result set" {
-			log.Println("if satisfied")
 			common.ErrorResponse(w, "invalid authorization", http.StatusUnauthorized, "CheckAuthentication")
 			return
 		}
@@ -50,14 +46,14 @@ func (h *AuthApi) LoginAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userData, token, err := service.LoginService(body)
+	userData, token,statusCode, err := service.LoginService(body)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "LoginAPI")
+		common.ErrorResponse(w, err.Error(), statusCode, "LoginAPI")
 		return
 	}
 	common.SetTokenCookie(w, token)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(userData)
 }
 
@@ -80,16 +76,14 @@ func (h *AuthApi) RegisterApi(w http.ResponseWriter, r *http.Request) {
 		common.ErrorResponse(w, "Invalid body", http.StatusBadRequest, "RegisterApi")
 		return
 	}
-	log.Println("REGISTER BODY ", body)
-	registerData, err := service.RegisterService(body)
+	registerData, statusCode, err := service.RegisterService(body)
 
 	if err != nil {
-		log.Println("REGISTER SERVICE ERROR ", err.Error())
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "RegisterApi")
+		common.ErrorResponse(w, err.Error(), statusCode, "RegisterApi")
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(registerData)
 }
 
@@ -114,19 +108,19 @@ func (h *AuthApi) CompleteRegisterApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userData, token, err := service.VerifyOtpAndCompleteRegistration(body)
+	userData, token, statusCode, err := service.VerifyOtpAndCompleteRegistration(body)
 
 	if err != nil {
 		if err.Error() == "invalid OTP" {
-			common.ErrorResponse(w, "Invalid OTP", http.StatusBadRequest, "CompleteRegisterApi")
+			common.ErrorResponse(w, "Invalid OTP", statusCode, "CompleteRegisterApi")
 			return
 		}
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "CompleteRegisterApi")
+		common.ErrorResponse(w, err.Error(), statusCode, "CompleteRegisterApi")
 		return
 	}
 
 	common.SetTokenCookie(w, token)
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(userData)
 }
 
@@ -134,33 +128,33 @@ func (h *AuthApi) LogoutApi(w http.ResponseWriter, r *http.Request, userData typ
 	w.Header().Set("Content-Type", "application/json")
 	token, _ := common.CheckTokenValidity(r)
 
-	userLogout, err := service.LogoutService(userData.Id, token)
+	userLogout, statusCode, err := service.LogoutService(userData.Id, token)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "LogoutApi")
+		common.ErrorResponse(w, err.Error(), statusCode, "LogoutApi")
 	}
 
 	if !userLogout {
-		common.ErrorResponse(w, "User Not Found", http.StatusBadRequest, "LogoutApi")
+		common.ErrorResponse(w, "User Not Found", statusCode, "LogoutApi")
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(statusCode)
 }
 
 func (h *AuthApi) LogoutFromAllDeviceApi(w http.ResponseWriter, r *http.Request, userData types.User) {
 	w.Header().Set("Content-Type", "application/json")
 
-	userLogout, err := service.LogoutFromAllDeviceService(userData.Id)
+	userLogout, statusCode,err := service.LogoutFromAllDeviceService(userData.Id)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "LogoutFromAllDeviceApi")
+		common.ErrorResponse(w, err.Error(), statusCode, "LogoutFromAllDeviceApi")
 	}
 
 	if !userLogout {
-		common.ErrorResponse(w, "User Not Found", http.StatusBadRequest, "LogoutFromAllDeviceApi")
+		common.ErrorResponse(w, "User Not Found", statusCode, "LogoutFromAllDeviceApi")
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(statusCode)
 }
 
 func (h *AuthApi) CreateOTPRequestAPI(w http.ResponseWriter, r *http.Request) {
@@ -179,15 +173,10 @@ func (h *AuthApi) CreateOTPRequestAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := service.CreateOTPRequest(body.Email, body.RequestTypeCode)
+	statusCode, err := service.CreateOTPRequest(body.Email, body.RequestTypeCode)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "CreateOTPRequestAPI")
-		return
-	}
-
-	if !status {
-		common.ErrorResponse(w, "Something went wrong", http.StatusBadRequest, "CreateOTPRequestAPI")
+		common.ErrorResponse(w, err.Error(), statusCode, "CreateOTPRequestAPI")
 		return
 	}
 
@@ -210,15 +199,10 @@ func (h *AuthApi) VerifyOtpAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := service.VerifyOTP(body.Email, body.Otp, body.RequestType)
+	statusCode, err := service.VerifyOTP(body.Email, body.Otp, body.RequestType)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "VerifyPasswordChangeRequestAPI")
-		return
-	}
-
-	if !status {
-		common.ErrorResponse(w, "Something went wrong", http.StatusBadRequest, "VerifyPasswordChangeRequestAPI")
+		common.ErrorResponse(w, err.Error(), statusCode, "VerifyPasswordChangeRequestAPI")
 		return
 	}
 
@@ -241,15 +225,10 @@ func (h *AuthApi) ForgetPasswordAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := service.ForgetPasswordService(body.Email, body.Password)
+	statusCode, err := service.ForgetPasswordService(body.Email, body.Password)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "ForgetPasswordAPI")
-		return
-	}
-
-	if !status {
-		common.ErrorResponse(w, "Something went wrong", http.StatusBadRequest, "ForgetPasswordAPI")
+		common.ErrorResponse(w, err.Error(), statusCode, "ForgetPasswordAPI")
 		return
 	}
 
@@ -267,15 +246,10 @@ func (h *AuthApi) ResetPasswordRequestAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	status, err := service.ResetPasswordRequest(userData.Username, body.Password)
+	statusCode, err := service.ResetPasswordRequest(userData.Username, body.Password)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest,"ResetPasswordRequestAPI")
-		return
-	}
-
-	if !status {
-		common.ErrorResponse(w, "Something went wrong", http.StatusBadRequest,"ResetPasswordRequestAPI")
+		common.ErrorResponse(w, err.Error(), statusCode,"ResetPasswordRequestAPI")
 		return
 	}
 
@@ -298,15 +272,10 @@ func (h *AuthApi) ResetPasswordAPI(w http.ResponseWriter, r *http.Request, userD
 		return
 	}
 
-	status, err := service.ResetPasswordService(userData, userToken, body.Password)
+	statusCode, err := service.ResetPasswordService(userData, userToken, body.Password)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest,"ResetPasswordAPI")
-		return
-	}
-
-	if !status {
-		common.ErrorResponse(w, "Something went wrong", http.StatusBadRequest,"ResetPasswordAPI")
+		common.ErrorResponse(w, err.Error(), statusCode,"ResetPasswordAPI")
 		return
 	}
 
@@ -328,15 +297,15 @@ func (h *AuthApi) DeleteUserApi(w http.ResponseWriter, r *http.Request, userData
 		common.ErrorResponse(w, bodyErr.Error(), http.StatusInternalServerError, "DeleteUserApi")
 		return
 	}
-	userDeleted, err := service.DeleteAccountService(userData.Id, userData.Email, body.Otp)
+	userDeleted, statusErr,err := service.DeleteAccountService(userData.Id, userData.Email, body.Otp)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError,"DeleteUserApi")
+		common.ErrorResponse(w, err.Error(), statusErr, "DeleteUserApi")
 		return
 	}
 
 	if !userDeleted {
-		common.ErrorResponse(w, "User Not Found", http.StatusBadRequest,"DeleteUserApi")
+		common.ErrorResponse(w, "User Not Found", statusErr, "DeleteUserApi")
 		return
 	}
 

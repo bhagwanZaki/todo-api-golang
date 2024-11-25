@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -20,43 +21,46 @@ var (
 	DELETE_ACCOUNT  = 3
 )
 
-func getUserDetail(email_username string) (types.User, error) {
+func getUserDetail(email_username string) (types.User, int, error) {
 	var userDetail types.User
 	dbErr := db.DB_CONN.QueryRow(context.Background(), "select * from get_user_detail($1)", email_username).Scan(&userDetail)
 	if dbErr != nil {
-		return types.User{}, dbErr
+		common.Logger(dbErr.Error(), "getUserDetail")
+		return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
-	return userDetail, nil
+	return userDetail, http.StatusOK, nil
 }
 
-func checkIfUserExistByEmailOrUsername(email_username string) (bool, error) {
+func checkIfUserExistByEmailOrUsername(email_username string) (bool, int, error) {
 	var userCount int
 	dbErr := db.DB_CONN.QueryRow(context.Background(), "select * from check_if_user_exist_by_email_or_username($1)", email_username).Scan(&userCount)
 	if dbErr != nil {
-		return true, dbErr
+		common.Logger(dbErr.Error(), "checkIfUserExistByEmailOrUsername")
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	if userCount == 0 {
-		return false, nil
+		return false, http.StatusBadRequest, nil
 	}
-	return true, nil
+	return true, http.StatusOK, nil
 }
 
-func checkIfUserExist(username string, email string) (bool, error) {
+func checkIfUserExist(username string, email string) (bool, int, error) {
 	var userCount int
 	dbErr := db.DB_CONN.QueryRow(context.Background(), "select * from check_if_user_exist($1,$2)", username, email).Scan(&userCount)
 	if dbErr != nil {
-		return true, dbErr
+		common.Logger(dbErr.Error(), "checkIfUserExist")
+		return true, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	if userCount == 0 {
-		return false, nil
+		return false, http.StatusOK, nil
 	}
-	return true, nil
+	return true, http.StatusOK, nil
 }
 
-func verifyUserPassword(loginData types.LoginSchema) (types.User, error) {
+func verifyUserPassword(loginData types.LoginSchema) (types.User, int, error) {
 	var userData types.User
 	var userPassword string
 
@@ -71,22 +75,23 @@ func verifyUserPassword(loginData types.LoginSchema) (types.User, error) {
 	)
 
 	if dbErr != nil {
+		common.Logger(dbErr.Error(), "verifyUserPassword")
 		if dbErr.Error() == "no rows in result set" {
-			return types.User{}, errors.New("username not found")
+			return types.User{}, http.StatusBadRequest, errors.New("username not found")
 		}
-		return types.User{}, dbErr
+		return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	passwordMatched := common.CheckPasswordHash(loginData.Password, userPassword)
 
 	if !passwordMatched {
-		return types.User{}, errors.New("invalid password")
+		return types.User{}, http.StatusBadRequest, errors.New("invalid password")
 	}
 
-	return userData, nil
+	return userData, http.StatusOK, nil
 }
 
-func changeUserPasswordService(email string, password string, request_type int)(bool, error) {
+func changeUserPasswordService(email string, password string, request_type int) (bool, int, error) {
 	currentTime := time.Now()
 	var isRequestExist bool
 	dbDate := fmt.Sprintf("%d-%d-%d", currentTime.Year(), currentTime.Month(), currentTime.Day())
@@ -100,87 +105,91 @@ func changeUserPasswordService(email string, password string, request_type int)(
 		isRequestExist).Scan(&isRequestExist)
 
 	if checkRequestErr != nil {
-		log.Println("?? checkRequestErr")
-		return false, checkRequestErr
+		common.Logger(checkRequestErr.Error(), "changeUserPasswordService")
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
-	
+	if !isRequestExist {
+		return false, http.StatusBadRequest, errors.New("no request found")
+	}
 	hashedPassword, hashErr := common.HashPassword(password)
-	
+
 	if hashErr != nil {
-		if strings.Contains(hashErr.Error(), "Invalid id") {
-			log.Println("?? hashErr")
-			return false, errors.New("invalid id")
-		}
-		return false, hashErr
-	}
-	
-	// change password
-	
-	_, updatePasswordErr := db.DB_CONN.Exec(context.Background(), "call update_password($1, $2)", email, hashedPassword)
-	
-	if updatePasswordErr != nil {
-		log.Println("?? updatePasswordErr")
-		return false, updatePasswordErr
+		common.Logger(hashErr.Error(), "changeUserPasswordService")
+		return false, http.StatusInternalServerError, errors.New("internal server error")
 	}
 
-	return true, nil
+	// change password
+
+	_, updatePasswordErr := db.DB_CONN.Exec(context.Background(), "call update_password($1, $2)", email, hashedPassword)
+
+	if updatePasswordErr != nil {
+		common.Logger(updatePasswordErr.Error(), "changeUserPasswordService")
+		return false, http.StatusInternalServerError, errors.New("internal server error")
+	}
+
+	return true, http.StatusInternalServerError, nil
 }
 
 // PUBLIC FUNCTIONS
-func LogoutService(userId int, token string) (bool, error) {
+func LogoutService(userId int, token string) (bool, int, error) {
 
 	_, dbErr := db.DB_CONN.Exec(context.Background(), "call logout($1,$2)", userId, token)
 
 	if dbErr != nil {
+		common.Logger(dbErr.Error(), "LogoutService")
 		if strings.Contains(dbErr.Error(), "Invalid id") {
-			return false, errors.New("invalid id")
+			return false, http.StatusBadRequest, errors.New("invalid id")
 		}
-		return false, dbErr
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
-	return true, nil
+	return true, http.StatusNoContent, nil
 }
 
-func LogoutFromAllDeviceService(userId int) (bool, error) {
+func LogoutFromAllDeviceService(userId int) (bool, int, error) {
 
 	_, dbErr := db.DB_CONN.Exec(context.Background(), "call logout_from_all_device($1)", userId)
 
 	if dbErr != nil {
+		common.Logger(dbErr.Error(), "LogoutFromAllDeviceService")
 		if strings.Contains(dbErr.Error(), "Invalid id") {
-			return false, errors.New("invalid id")
+			return false, http.StatusBadRequest, errors.New("invalid id")
 		}
-		return false, dbErr
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
-	return true, nil
+	return true, http.StatusNoContent, nil
 }
 
-func LoginService(loginData types.LoginSchema) (types.User, string, error) {
-	userData, loginErr := verifyUserPassword(loginData)
+func LoginService(loginData types.LoginSchema) (types.User, string, int, error) {
+	userData, statusCode, verifyPasswordErr := verifyUserPassword(loginData)
 
-	if loginErr != nil {
-		return types.User{}, "", loginErr
+	if verifyPasswordErr != nil {
+		return types.User{}, "", statusCode, verifyPasswordErr
 	}
 
 	token, tokenErr := common.SaveTokenInDb(userData.Id)
 	if tokenErr != nil {
-		return types.User{}, "", tokenErr
+		return types.User{}, "", http.StatusInternalServerError, tokenErr
 	}
 
-	return userData, token, nil
+	return userData, token, http.StatusCreated, nil
 }
 
-func RegisterService(registerData types.RegisterSchema) (types.UserRegisterStruct, error) {
-	isUserExist, isUserExistErr := checkIfUserExist(registerData.Username, registerData.Email)
+func RegisterService(registerData types.RegisterSchema) (types.UserRegisterStruct, int, error) {
+	isUserExist, statusCode, isUserExistErr := checkIfUserExist(registerData.Username, registerData.Email)
 
 	if isUserExistErr != nil {
-		log.Println("[checkIfOtpAlreadyExist] ERROR", isUserExistErr)
-		return types.UserRegisterStruct{}, isUserExistErr
+		return types.UserRegisterStruct{}, statusCode, isUserExistErr
 	}
 
 	if isUserExist {
-		return types.UserRegisterStruct{}, errors.New("username or email already exist")
+		return types.UserRegisterStruct{}, http.StatusBadRequest, errors.New("username or email already exist")
 	}
 
-	existingOTP := common.CheckIfOtpAlreadyExist(registerData.Email, REGISTER)
+	existingOTP, otpErr := common.CheckIfOtpAlreadyExist(registerData.Email, REGISTER)
+
+	if otpErr != nil {
+		return types.UserRegisterStruct{}, http.StatusInternalServerError, errors.New("something went wrong")
+	}
 	doesOTPExist := (types.UserOTPDbStruct{}) != existingOTP
 	var otp int
 
@@ -190,15 +199,14 @@ func RegisterService(registerData types.RegisterSchema) (types.UserRegisterStruc
 		var dbErr error
 		otp, dbErr = common.CreateAndSaveOTP(registerData.Email, REGISTER)
 		if dbErr != nil {
-			fmt.Println("DB ERROR ", dbErr.Error())
-			return types.UserRegisterStruct{}, dbErr
+			return types.UserRegisterStruct{}, http.StatusInternalServerError, errors.New("something went wrong")
 		}
 	}
 
 	err := common.SendEmail(registerData.Email, "Email Verification", "Email Verifucation\nOTP : "+strconv.Itoa(otp))
 
 	if err != nil {
-		fmt.Println("SMTP Error", err.Error())
+		common.Logger("SMTP ERROR : "+err.Error(), "RegisterService")
 	}
 
 	res := types.UserRegisterStruct{
@@ -207,10 +215,10 @@ func RegisterService(registerData types.RegisterSchema) (types.UserRegisterStruc
 		Otp:      otp,
 	}
 
-	return res, nil
+	return res, http.StatusCreated, nil
 }
 
-func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (types.User, string, error) {
+func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (types.User, string, int, error) {
 	var dbData types.UserOTPDbStruct
 
 	dbErr := db.DB_CONN.QueryRow(
@@ -218,11 +226,11 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 		data.Email, data.Otp, REGISTER).Scan(&dbData.Id, &dbData.Email, &dbData.Otp)
 
 	if dbErr != nil {
+		common.Logger(dbErr.Error(), "VerifyOtpAndCompleteRegistration")
 		if dbErr.Error() == "no rows in result set" {
-			return types.User{}, "", errors.New("invalid OTP")
+			return types.User{}, "", http.StatusBadRequest, errors.New("invalid OTP")
 		}
-		log.Println("VERIFY DB ERR ", dbErr)
-		return types.User{}, "", dbErr
+		return types.User{}, "", http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	var userId int
@@ -232,8 +240,8 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 	password, hashErr := common.HashPassword(data.Password)
 
 	if hashErr != nil {
-		log.Println("HASH ERR ", hashErr)
-		return types.User{}, "", errors.New("something went wrong")
+		common.Logger(hashErr.Error(), "VerifyOtpAndCompleteRegistration")
+		return types.User{}, "", http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	createErr := db.DB_CONN.QueryRow(
@@ -248,13 +256,13 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 	).Scan(&userId)
 
 	if createErr != nil {
-		log.Println("CREATE USER DB ERR ", createErr)
-		return types.User{}, "", createErr
+		common.Logger("CREATE USER DB ERR : "+createErr.Error(), "VerifyOtpAndCompleteRegistration")
+		return types.User{}, "", http.StatusInternalServerError, errors.New("unable to create user. Try again.")
 	}
 
 	token, tokenErr := common.SaveTokenInDb(userId)
 	if tokenErr != nil {
-		return types.User{}, "", tokenErr
+		return types.User{}, "", http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	return types.User{
@@ -262,43 +270,48 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 		Username: data.Username,
 		Fullname: data.Fullname,
 		Email:    data.Email,
-	}, token, nil
+	}, token, http.StatusCreated, nil
 }
 
-func ResetPasswordRequest(username string, password string) (bool, error) {
+func ResetPasswordRequest(username string, password string) (int, error) {
 	data := types.LoginSchema{
 		Username: username,
 		Password: password,
 	}
-	userData, verifyPasswordErr := verifyUserPassword(data)
+	userData, statusCode, verifyPasswordErr := verifyUserPassword(data)
 
 	if verifyPasswordErr != nil {
-		return false, verifyPasswordErr
+		return statusCode, verifyPasswordErr
 	}
 
-	_, otpErr := CreateOTPRequest(userData.Email, PASSWORD_CHANGE)
-
+	statusCode,otpErr := CreateOTPRequest(userData.Email, PASSWORD_CHANGE)
+ 
 	if otpErr != nil {
-		return false, otpErr
+		return statusCode,otpErr
 	}
 
-	return true, nil
+	return http.StatusCreated, nil
 }
 
 // This service will send the otp
-func CreateOTPRequest(email string, requestTypeCode int) (bool, error) {
+func CreateOTPRequest(email string, requestTypeCode int) (int, error) {
 
 	log.Println(email, "REQUEST TYPE : ", requestTypeCode)
-	userExist, userExistErr := checkIfUserExistByEmailOrUsername(email)
+	userExist, statusCode, userExistErr := checkIfUserExistByEmailOrUsername(email)
 
 	if userExistErr != nil {
-		return false, errors.New("invalid email")
-	}
-	if !userExist {
-		return false, errors.New("email not found")
+		return statusCode, userExistErr
 	}
 
-	existingOTP := common.CheckIfOtpAlreadyExist(email, requestTypeCode)
+	if !userExist {
+		return statusCode, errors.New("email not found")
+	}
+	
+	existingOTP, otpErr := common.CheckIfOtpAlreadyExist(email, requestTypeCode)
+	
+	if otpErr != nil {
+		return http.StatusInternalServerError, errors.New("something went wrong")
+	}
 	doesOTPExist := (types.UserOTPDbStruct{}) != existingOTP
 	var otp int
 
@@ -308,8 +321,7 @@ func CreateOTPRequest(email string, requestTypeCode int) (bool, error) {
 		var dbErr error
 		otp, dbErr = common.CreateAndSaveOTP(email, requestTypeCode)
 		if dbErr != nil {
-			fmt.Println("DB ERROR ", dbErr.Error())
-			return false, dbErr
+			return http.StatusInternalServerError, errors.New("something went wrong")
 		}
 	}
 
@@ -326,22 +338,22 @@ func CreateOTPRequest(email string, requestTypeCode int) (bool, error) {
 		subject = "Delete Account Request"
 		msgBody = "Account delete request has been initiated from your account.\nIf you did not make this request, please update your password.\n\nTo proceed with the account deletion, please use the following one-time password (OTP):\n\nOTP: " + strconv.Itoa(otp) + "\nIf you have initiated this request, enter the OTP to confirm the account deletion process.\nKeep in mind that once the account is deleted, all data associated with it will be permanently removed."
 	default:
-		return false, errors.New("invalid request")
+		return http.StatusBadRequest,errors.New("invalid request")
 	}
 
 	// TODO: MOVE THIS INTO RABBITMQ
 	err := common.SendEmail(email, subject, msgBody)
 
 	if err != nil {
-		log.Println("SMTP Error", err.Error())
+		common.Logger("SMTP ERROR : "+err.Error(), "CreateOTPRequeset")
 	}
 
-	return true, nil
+	return http.StatusCreated, nil
 }
 
 // This will verify the otp and create a request
 
-func VerifyOTP(email string, otp int, requestType int) (bool, error) {
+func VerifyOTP(email string, otp int, requestType int) (int,error) {
 	// verify otp
 	var dbData types.UserOTPDbStruct
 	dbErr := db.DB_CONN.QueryRow(
@@ -349,10 +361,11 @@ func VerifyOTP(email string, otp int, requestType int) (bool, error) {
 		email, otp, requestType).Scan(&dbData.Id, &dbData.Email, &dbData.Otp)
 
 	if dbErr != nil {
+		common.Logger(dbErr.Error(),"VerifyOTP")
 		if dbErr.Error() == "no rows in result set" {
-			return false, errors.New("invalid OTP")
+			return http.StatusBadRequest, errors.New("invalid OTP")
 		}
-		return false, dbErr
+		return http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	// create request data
@@ -360,96 +373,98 @@ func VerifyOTP(email string, otp int, requestType int) (bool, error) {
 	dbDate := fmt.Sprintf("%d-%d-%d", currentTime.Year(), currentTime.Month(), currentTime.Day())
 
 	_, createErr := db.DB_CONN.Exec(context.Background(), "CALL create_request($1,$2,$3)", email, requestType, dbDate)
-
+	
 	if createErr != nil {
-		return false, createErr
+		common.Logger(createErr.Error(),"VerifyOTP")
+		return http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
-	return true, nil
+	return http.StatusOK, nil
 }
 
-func ForgetPasswordService(email string, password string) (bool, error) {
-	userDetail, userDetailErr := getUserDetail(email)
+func ForgetPasswordService(email string, password string) (int, error) {
+	userDetail, statusCode, userDetailErr := getUserDetail(email)
 
 	if userDetailErr != nil {
-		return false, userDetailErr
+		return statusCode, userDetailErr
 	}
 
-	_, changePasswordErr := changeUserPasswordService(email, password, FORGET_PASSWORD)
-	
+	_, statusErr, changePasswordErr := changeUserPasswordService(email, password, FORGET_PASSWORD)
+
 	if changePasswordErr != nil {
-		return false, changePasswordErr
+		return statusErr, changePasswordErr
 	}
 
-	_, err := LogoutFromAllDeviceService(userDetail.Id)
+	_, logoutCode, err := LogoutFromAllDeviceService(userDetail.Id)
 
 	if err != nil {
-		return false, err
+		return logoutCode, err
 	}
 
-	return true, nil
+	return http.StatusNoContent, nil
 }
 
-func ResetPasswordService(userDetail types.User,currentToken string, password string) (bool, error)  {
-	_, changePasswordErr := changeUserPasswordService(userDetail.Email, password, PASSWORD_CHANGE)
+func ResetPasswordService(userDetail types.User, currentToken string, password string) (int, error) {
+	_, statusCode, changePasswordErr := changeUserPasswordService(userDetail.Email, password, PASSWORD_CHANGE)
 
 	if changePasswordErr != nil {
-		log.Println("?? CHANGE PASSWORD ERR")
-		return false, changePasswordErr
+		common.Logger(changePasswordErr.Error(), "ResetPasswordService")
+		return statusCode, changePasswordErr
 	}
-	
+
 	_, dbErr := db.DB_CONN.Exec(context.Background(), "call logout_from_all_device_except_one($1,$2)", userDetail.Id, currentToken)
-	
+
 	if dbErr != nil {
-		log.Println(userDetail.Id, currentToken)
+		common.Logger(dbErr.Error(), "ResetPasswordService")
 		if strings.Contains(dbErr.Error(), "Invalid id") {
-			log.Println("?? LOGOUT ERR")
-			return false, errors.New("invalid id")
+			return http.StatusBadRequest, errors.New("invalid id")
 		}
-		return false, dbErr
+		return http.StatusInternalServerError, errors.New("something went wrong")
 	}
-	return true, nil
+	return http.StatusNoContent, nil
 }
 
 // delete account
-func DeleteAccountService(userId int, email string, otp int) (bool, error) {
+func DeleteAccountService(userId int, email string, otp int) (bool, int, error) {
 
 	_, dbErr := db.DB_CONN.Exec(
 		context.Background(), "select * from verify_user_otp($1,$2,$3)",
 		email, otp, DELETE_ACCOUNT)
 
 	if dbErr != nil {
-		if dbErr.Error() == "no rows in result set" {
-			return false, errors.New("invalid OTP")
+		common.Logger(dbErr.Error(), "DeleteAccountService")
+		if dbErr.Error() == "Invalid id" {
+			return false, http.StatusBadRequest, errors.New("invalid OTP")
 		}
-		return false, dbErr
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	_, deleteDbErr := db.DB_CONN.Exec(context.Background(), "call delete_user($1)", userId)
 
 	if deleteDbErr != nil {
+		common.Logger(deleteDbErr.Error(), "DeleteAccountService")
 		if strings.Contains(deleteDbErr.Error(), "Invalid id") {
-			return false, errors.New("invalid id")
+			return false, http.StatusBadRequest, errors.New("invalid OTP")
 		}
-		return false, deleteDbErr
+		return false, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
-	return true, nil
+	return true, http.StatusOK, nil
 }
 
 func UpdateProfileService(profileData types.ProfileSchema, userData types.User) (types.User, int, error) {
 	res := userData
 
 	if profileData.Username == userData.Username {
-		return types.User{}, 400, errors.New("invalid request same username")
+		return types.User{}, http.StatusBadRequest, errors.New("invalid request same username")
 	}
 
 	if profileData.Email == userData.Email {
-		return types.User{}, 400, errors.New("invalid request same email")
+		return types.User{}, http.StatusBadRequest, errors.New("invalid request same email")
 	}
 
 	if profileData.Fullname == userData.Fullname {
-		return types.User{}, 400, errors.New("invalid request same fullname")
+		return types.User{}, http.StatusBadRequest, errors.New("invalid request same fullname")
 	}
 
 	// /check if ussername or email aleardy exist
@@ -463,7 +478,8 @@ func UpdateProfileService(profileData types.ProfileSchema, userData types.User) 
 	).Scan(&existStatusCode)
 
 	if existErr != nil {
-		return types.User{}, 500, existErr
+		common.Logger(existErr.Error(),"UpdateProfileService")
+		return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 	}
 
 	if existStatusCode != 0 {
@@ -477,17 +493,18 @@ func UpdateProfileService(profileData types.ProfileSchema, userData types.User) 
 			existErrMsg = "username and email already exist"
 		}
 
-		return types.User{}, 400, errors.New(existErrMsg)
+		return types.User{}, http.StatusBadRequest, errors.New(existErrMsg)
 	}
 
 	if profileData.Email != "" {
 		_, err := db.DB_CONN.Exec(context.Background(), "CALL update_email($1, $2)", userData.Id, profileData.Email)
-
+		
 		if err != nil {
+			common.Logger(err.Error(),"UpdateProfileService")
 			if strings.Contains(err.Error(), "Duplicate data error") {
-				return types.User{}, 400, errors.New("email already exist")
+				return types.User{}, http.StatusBadRequest, errors.New("email already exist")
 			}
-			return types.User{}, 500, err
+			return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 		}
 
 		res.Email = profileData.Email
@@ -497,10 +514,11 @@ func UpdateProfileService(profileData types.ProfileSchema, userData types.User) 
 		_, err := db.DB_CONN.Exec(context.Background(), "CALL update_username($1, $2)", userData.Id, profileData.Username)
 
 		if err != nil {
+			common.Logger(err.Error(),"UpdateProfileService")
 			if strings.Contains(err.Error(), "Duplicate data error") {
-				return types.User{}, 400, errors.New("username already exist")
+				return types.User{}, http.StatusBadRequest, errors.New("username already exist")
 			}
-			return types.User{}, 500, err
+			return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 		}
 
 		res.Username = profileData.Username
@@ -510,11 +528,12 @@ func UpdateProfileService(profileData types.ProfileSchema, userData types.User) 
 		_, err := db.DB_CONN.Exec(context.Background(), "CALL update_fullname($1, $2)", userData.Id, profileData.Fullname)
 
 		if err != nil {
-			return types.User{}, 500, err
+			common.Logger(err.Error(),"UpdateProfileService")
+			return types.User{}, http.StatusInternalServerError, errors.New("something went wrong")
 		}
 
 		res.Fullname = profileData.Fullname
 	}
 
-	return res, 201, nil
+	return res, http.StatusCreated, nil
 }

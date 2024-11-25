@@ -19,20 +19,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func CheckIfOtpAlreadyExist(email string, requestType int) types.UserOTPDbStruct {
+func CheckIfOtpAlreadyExist(email string, requestType int) (types.UserOTPDbStruct, error) {
 	var existingOTP types.UserOTPDbStruct
 	//
 	checkErr := db.DB_CONN.QueryRow(
 		context.Background(), "select * from check_if_otp_already_exist($1,$2)",
 		email, requestType).Scan(&existingOTP.Id, &existingOTP.Email, &existingOTP.Otp)
 
-	if checkErr != nil && checkErr.Error() != "no rows in result set" {
-		log.Println("[checkIfOtpAlreadyExist] ERROR", checkErr)
-		return types.UserOTPDbStruct{}
+	if checkErr != nil {
+		Logger(checkErr.Error(), "CheckIfOtpAlreadyExist")
+		if checkErr.Error() != "no rows in result set" {
+			return types.UserOTPDbStruct{}, nil
+		}
+		return types.UserOTPDbStruct{}, checkErr
 	}
 
-	log.Println("existingOTP ", existingOTP)
-	return existingOTP
+	log.Println("existingOTP ", existingOTP) //TODO: remove this
+	return existingOTP, nil
 }
 
 func CreateAndSaveOTP(email string, request_type int) (int, error) {
@@ -56,6 +59,7 @@ func CreateAndSaveOTP(email string, request_type int) (int, error) {
 	)
 
 	if dbErr != nil {
+		Logger(dbErr.Error(), "CreateAndSaveOTP")
 		return 0, dbErr
 	}
 
@@ -110,15 +114,17 @@ func SaveTokenInDb(id int) (string, error) {
 	token, dbToken, digest, tokenErr := CreateToken()
 
 	if tokenErr != nil {
+		Logger(tokenErr.Error(), "SaveTokenInDb")
 		return "", errors.New("token issue")
 	}
 	currentTime := time.Now()
 	dbDate := fmt.Sprintf("%d-%d-%d", currentTime.Year(), currentTime.Month(), currentTime.Day())
-
+	
 	_, tokenDbErr := db.DB_CONN.Exec(context.Background(), "CALL create_token($1,$2,$3,$4)", id, dbToken, digest, dbDate)
-
+	
 	if tokenDbErr != nil {
-		return "", tokenDbErr
+		Logger(tokenDbErr.Error(), "SaveTokenInDb")
+		return "", errors.New("unable to save token")
 	}
 
 	return token, nil
@@ -186,6 +192,7 @@ func GetUserDataFromToken(r *http.Request) (types.User, error) {
 	)
 
 	if dbErr != nil {
+		Logger(dbErr.Error(),"GetUserDataFromToken")
 		return types.User{}, dbErr
 	}
 
@@ -212,6 +219,7 @@ func GetUserDataWithTokenFromToken(r *http.Request) (types.User, string, error) 
 	)
 
 	if dbErr != nil {
+		Logger(dbErr.Error(),"GetUserDataWithTokenFromToken")
 		return types.User{}, "", dbErr
 	}
 
