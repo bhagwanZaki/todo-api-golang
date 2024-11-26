@@ -30,13 +30,13 @@ func (h *TodoApi) HealthCheckAPI(w http.ResponseWriter, r *http.Request) {
 func (h *TodoApi) GetTodos(w http.ResponseWriter, r *http.Request, userData types.User) {
 	w.Header().Set("Content-Type", "application/json")
 
-	todoList, err := service.GetTodoList(userData.Id)
+	todoList, statusCode, err := service.GetTodoList(userData.Id)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "GetTodos")
+		common.ErrorResponse(w, err.Error(), statusCode, "GetTodos")
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(todoList)
 
 }
@@ -61,14 +61,14 @@ func (h *TodoApi) AddTodo(w http.ResponseWriter, r *http.Request, userData types
 		return
 	}
 
-	newTodo, err := service.AddTodo(data, userData.Id)
+	newTodo, statusCode,err := service.AddTodo(data, userData.Id)
 
 	if err != nil {
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "AddTodo")
+		common.ErrorResponse(w, err.Error(), statusCode, "AddTodo")
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(newTodo)
 }
 
@@ -81,14 +81,10 @@ func (h *TodoApi) DeleteTodo(w http.ResponseWriter, r *http.Request, userData ty
 		return
 	}
 
-	err := service.DeleteTodo(id, userData.Id)
+	statusCode, err := service.DeleteTodo(id, userData.Id)
 
 	if err != nil {
-		if err.Error() == "Invalid id" {
-			common.ErrorResponse(w, "Id Not Found", http.StatusBadRequest, "DeleteTodo")
-			return
-		}
-		common.ErrorResponse(w, err.Error(), http.StatusBadRequest, "DeleteTodo")
+		common.ErrorResponse(w, err.Error(), statusCode, "DeleteTodo")
 		return
 	}
 
@@ -122,15 +118,10 @@ func (h *TodoApi) UpdateTodo(w http.ResponseWriter, r *http.Request, userData ty
 		return
 	}
 
-	updatedTodo, err := service.UpdateTodo(userData.Id, id, data.Name, data.Completed)
+	updatedTodo, statusCode,err := service.UpdateTodo(userData.Id, id, data.Name, data.Completed)
 
 	if err != nil {
-		if err.Error() == "invalid id" {
-			common.ErrorResponse(w, "Invalid Id", http.StatusBadRequest, "UpdateTodo")
-			return
-		}
-
-		common.ErrorResponse(w, err.Error(), http.StatusInternalServerError, "UpdateTodo")
+		common.ErrorResponse(w, err.Error(), statusCode, "UpdateTodo")
 		return
 	}
 
