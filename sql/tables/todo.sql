@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.todo
     CONSTRAINT todo_user_fkey FOREIGN KEY (user_id)
         REFERENCES public.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
+        ON DELETE CASCADE
 );
 
 ALTER SEQUENCE public.todo_id_seq

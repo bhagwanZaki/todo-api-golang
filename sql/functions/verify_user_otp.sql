@@ -1,13 +1,15 @@
-CREATE OR REPLACE FUNCTION verify_user_otp(
-  user_email VARCHAR, 
-  register_otp INTEGER, 
-  user_request_type INTEGER
+CREATE OR REPLACE FUNCTION public.verify_user_otp(
+	user_email character varying,
+	register_otp integer,
+	user_request_type integer
   )
-  RETURNS TABLE(id INTEGER, email VARCHAR, otp INTEGER)
-  LANGUAGE plpgsql AS
-$func$
-DECLARE
-    rows_deleted INT;
+    RETURNS TABLE(id integer, email character varying, otp integer) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
 BEGIN
   RETURN QUERY
   WITH deleted_row AS (
@@ -18,14 +20,11 @@ BEGIN
       AND user_otp.request_type = user_request_type
     RETURNING user_otp.id, user_otp.email, user_otp.otp
   )
-  
-  GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+  SELECT * FROM deleted_row;
 
-  IF rows_deleted = 0 THEN
+  -- Raise an exception if no rows were deleted
+  IF NOT FOUND THEN
       RAISE EXCEPTION 'Invalid id';
   END IF;
-
-  SELECT * FROM deleted_row
-  LIMIT 1;
 END
-$func$;
+$BODY$;

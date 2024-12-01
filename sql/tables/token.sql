@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.token
     CONSTRAINT token_user_fkey FOREIGN KEY (user_id)
         REFERENCES public.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE NO ACTION
+        ON DELETE CASCADE
 );
 
 ALTER SEQUENCE public.token_id_seq

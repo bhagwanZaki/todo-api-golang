@@ -227,7 +227,7 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 
 	if dbErr != nil {
 		common.Logger(dbErr.Error(), "VerifyOtpAndCompleteRegistration")
-		if dbErr.Error() == "no rows in result set" {
+		if strings.Contains(dbErr.Error(), "Invalid id") {
 			return types.User{}, "", http.StatusBadRequest, errors.New("invalid OTP")
 		}
 		return types.User{}, "", http.StatusInternalServerError, errors.New("something went wrong")
@@ -257,7 +257,7 @@ func VerifyOtpAndCompleteRegistration(data types.VerifyOtpAndRegisterSchema) (ty
 
 	if createErr != nil {
 		common.Logger("CREATE USER DB ERR : "+createErr.Error(), "VerifyOtpAndCompleteRegistration")
-		return types.User{}, "", http.StatusInternalServerError, errors.New("unable to create user. Try again.")
+		return types.User{}, "", http.StatusInternalServerError, errors.New("unable to create user. Try again")
 	}
 
 	token, tokenErr := common.SaveTokenInDb(userId)
@@ -362,7 +362,7 @@ func VerifyOTP(email string, otp int, requestType int) (int,error) {
 
 	if dbErr != nil {
 		common.Logger(dbErr.Error(),"VerifyOTP")
-		if dbErr.Error() == "no rows in result set" {
+		if strings.Contains(dbErr.Error(), "Invalid id") {
 			return http.StatusBadRequest, errors.New("invalid OTP")
 		}
 		return http.StatusInternalServerError, errors.New("something went wrong")
@@ -433,7 +433,7 @@ func DeleteAccountService(userId int, email string, otp int) (bool, int, error) 
 
 	if dbErr != nil {
 		common.Logger(dbErr.Error(), "DeleteAccountService")
-		if dbErr.Error() == "Invalid id" {
+		if strings.Contains(dbErr.Error(), "Invalid id") {
 			return false, http.StatusBadRequest, errors.New("invalid OTP")
 		}
 		return false, http.StatusInternalServerError, errors.New("something went wrong")

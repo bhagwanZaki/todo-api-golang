@@ -28,7 +28,7 @@ func CheckIfOtpAlreadyExist(email string, requestType int) (types.UserOTPDbStruc
 
 	if checkErr != nil {
 		Logger(checkErr.Error(), "CheckIfOtpAlreadyExist")
-		if checkErr.Error() != "no rows in result set" {
+		if checkErr.Error() == "no rows in result set" {
 			return types.UserOTPDbStruct{}, nil
 		}
 		return types.UserOTPDbStruct{}, checkErr
