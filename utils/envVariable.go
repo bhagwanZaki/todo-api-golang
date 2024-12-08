@@ -17,6 +17,7 @@ var (
 	SMTP_PASSWORD string
 	SMTP_PORT string
 	SMTP_TLS string
+	CLOUDINARY_URL string
 )
 
 func LoadEnv() error {
@@ -36,6 +37,7 @@ func LoadEnv() error {
 	SMTP_PASSWORD = os.Getenv("SMTP_PASSWORD")
 	SMTP_PORT = os.Getenv("SMTP_PORT")
 	SMTP_TLS = os.Getenv("SMTP_TLS")
+	CLOUDINARY_URL = os.Getenv("CLOUDINARY_URL")
 
 	if err != nil {
         return err

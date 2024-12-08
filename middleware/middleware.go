@@ -68,3 +68,17 @@ func AuthRequiredReturnToken(next func(http.ResponseWriter, *http.Request, types
 		next(w, r, userData, token)
 	}
 }
+
+func ImageUploaderUrl(next func(http.ResponseWriter, *http.Request, types.User, *common.ImageWrappper), imageUploader *common.ImageWrappper) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userData, userDataErr := common.GetUserDataFromToken(r)
+
+		if userDataErr != nil {
+			common.ErrorResponse(w, userDataErr.Error(), http.StatusUnauthorized, "AuthRequired")
+			log.Println(Yellow+"UnAuthorized"+Reset, ColorMethod(r.Method), r.URL.Path)
+			return
+		}
+
+		next(w, r, userData, imageUploader)
+	}
+}

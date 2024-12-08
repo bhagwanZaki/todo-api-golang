@@ -19,11 +19,18 @@ func main() {
 		return
 	}
 
+	imageUploader, err := common.InitiailizeImageWrappper()
+
+	if err != nil{
+		return
+	}
+
 	common.InitSMTP()
 	router := http.NewServeMux()
 
 	todoRoutes := &route.TodoApi{}
 	authRoutes := &route.AuthApi{}
+	feedbackRoutes := &route.FeedbackApi{}
 
 	// ḍatabase setup
 	db.InitDatabase()
@@ -49,6 +56,8 @@ func main() {
 	router.HandleFunc("POST /api/add", middleware.Logger(middleware.AuthRequired(todoRoutes.AddTodo)))
 	router.HandleFunc("PUT /api/update/{id}", middleware.Logger(middleware.AuthRequired(todoRoutes.UpdateTodo)))
 	router.HandleFunc("DELETE /api/delete/{id}", middleware.Logger(middleware.AuthRequired(todoRoutes.DeleteTodo)))
+	// feedback routes
+	router.HandleFunc("POST /api/feedback/create", middleware.Logger(middleware.ImageUploaderUrl(feedbackRoutes.CreateFeedbackAPI, imageUploader)))
 
 	server := http.Server{
 		Addr:    ":8000",
