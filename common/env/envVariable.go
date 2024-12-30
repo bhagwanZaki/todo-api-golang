@@ -21,12 +21,16 @@ var (
 	SQS_URL string
 )
 
-func LoadEnv() error {
+func LoadEnv(debug bool) error {
 	var err error
-	err = godotenv.Load("../.env")
-	if err != nil {
-        return err
-    }
+	
+	if debug {
+		err = godotenv.Load("../.env")
+		if err != nil {
+			return err
+		}
+	}
+
 	AUTH_TOKEN_LENGTH, err = strconv.Atoi(os.Getenv("AUTH_TOKEN_LENGTH"))
 	if err != nil {
         return err

@@ -16,7 +16,8 @@ import (
 )
 
 func main() {
-	envErr := env.LoadEnv()
+	DEBUG := false
+	envErr := env.LoadEnv(DEBUG)
 
 	if envErr != nil {
 		log.Fatalln("Failed to env file")
