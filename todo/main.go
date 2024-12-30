@@ -20,7 +20,7 @@ func main() {
 	envErr := env.LoadEnv(DEBUG)
 
 	if envErr != nil {
-		log.Fatalln("Failed to env file")
+		log.Fatalln("Failed to env file ",envErr.Error())
 		return
 	}
 
