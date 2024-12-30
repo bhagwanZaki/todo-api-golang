@@ -1,0 +1,22 @@
+# Stage 1: Build the Go binary
+FROM golang:1.23.1 AS builder
+WORKDIR /app
+
+COPY ./common ./common
+COPY ./consumer ./consumer
+
+RUN go work init ./common ./consumer
+COPY go.work.sum ./
+
+WORKDIR /app/consumer
+RUN go mod download
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/consumer .
+
+# Stage 2: Create a small image to run the binary
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /go/bin/consumer .
+EXPOSE 8000
+CMD ["./consumer"]

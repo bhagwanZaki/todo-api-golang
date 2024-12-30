@@ -1,10 +1,18 @@
 version: '3'
 
 services:
+    consumer:
+        build:
+            context: ./
+            dockerfile: ./consumer/DockerFile.multistage
+        deploy:
+            replicas: 2
+        networks:
+            - todo-networks
     todo:
         build:
             context: ./
-            dockerfile: DockerFile.multistage
+            dockerfile: ./todo/DockerFile.multistage
         deploy:
             replicas: 4
         ports:
