@@ -13,7 +13,6 @@ const (
 )
 
 func InitializeQueue() *amqp.Channel {
-	// "amqp://guest:guest@localhost:5672/"
 	conn, err := amqp.Dial(env.SQS_URL)
 	logger.FailOnError(err, "Failed to connect to RabbitMQ")
 
